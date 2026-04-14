@@ -1,0 +1,12 @@
+.git
+.venv
+__pycache__
+*.pyc
+.env
+dist
+runtime
+billing_report.csv
+export.csv
+docs
+config/sources.yml
+config/*.local.yml

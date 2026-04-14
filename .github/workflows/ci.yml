@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: Validate backend syntax
+        run: python -m compileall app
+
+      - name: Validate frontend syntax
+        run: node --check web/js/app.js
+
+      - name: Build release bundle
+        run: |
+          chmod +x scripts/*.sh
+          ./scripts/build_release_bundle.sh
+          ./scripts/verify_release_bundle.sh
+
+      - name: Build GitHub-ready repo
+        run: |
+          ./scripts/build_github_repo.sh
+          ./scripts/verify_github_repo.sh

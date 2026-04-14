@@ -1,0 +1,392 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>new-api 日志统计</title>
+    <link rel="stylesheet" href="/static/css/styles.css?v=20260415-1" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="hero-card">
+        <div>
+          <p class="eyebrow">new-api log statistics</p>
+          <h1>日志账单统计</h1>
+          <p class="hero-copy">
+            面向 `new-api` 日志数据库的独立统计页，已完成查询、图表、导出、
+            多数据源、缓存与部署能力，可直接用于日志账单分析。
+          </p>
+        </div>
+        <div class="hero-actions">
+          <span id="auth-session-badge" class="badge badge-muted">鉴权检测中</span>
+          <button id="refresh-health" class="button">刷新状态</button>
+          <button id="refresh-sources" class="button button-secondary">刷新数据源</button>
+          <button id="column-settings-toggle" class="button button-secondary">列设置</button>
+          <button id="theme-toggle" class="button button-secondary">主题切换</button>
+          <button id="auth-logout" class="button button-secondary hidden" type="button">退出登录</button>
+        </div>
+      </section>
+
+      <section class="grid two-up">
+        <article class="panel">
+          <div class="panel-header">
+            <h2>服务状态</h2>
+            <span id="health-badge" class="badge badge-muted">加载中</span>
+          </div>
+          <pre id="health-output" class="code-block">正在请求 /api/health ...</pre>
+        </article>
+
+        <article class="panel">
+          <div class="panel-header">
+            <h2>运行能力</h2>
+            <span class="badge badge-accent">Ready</span>
+          </div>
+          <ul class="feature-list">
+            <li>FastAPI 服务入口</li>
+            <li>数据源配置加载与连通性测试</li>
+            <li>汇总、明细、导出接口</li>
+            <li>前端查询页基础交互</li>
+          </ul>
+        </article>
+      </section>
+
+      <section id="auth-gate" class="panel auth-gate hidden">
+        <div class="panel-header">
+          <h2>访问鉴权</h2>
+          <span class="badge badge-warning">Protected</span>
+        </div>
+        <p class="auth-copy">
+          当前实例已启用可选登录鉴权。请使用部署时配置的账号密码登录后再查看数据源、统计结果和导出能力。
+        </p>
+        <form id="auth-login-form" class="auth-form">
+          <label>
+            <span>用户名</span>
+            <input id="auth-username" type="text" autocomplete="username" placeholder="例如 admin" />
+          </label>
+          <label>
+            <span>密码</span>
+            <input id="auth-password" type="password" autocomplete="current-password" placeholder="请输入访问密码" />
+          </label>
+          <div class="inline-actions">
+            <button id="auth-login-submit" type="submit" class="button">登录</button>
+          </div>
+        </form>
+        <p id="auth-message" class="auth-message">正在检查鉴权状态。</p>
+      </section>
+
+      <div id="protected-shell" class="hidden">
+      <section class="panel">
+        <div class="panel-header">
+          <h2>已配置数据源</h2>
+          <span id="sources-count" class="badge badge-muted">0</span>
+        </div>
+        <div id="sources-empty" class="empty-state">
+          当前未加载到数据源。请添加 `config/sources.yml`，或设置 `SOURCE_CONFIG_JSON`。
+        </div>
+        <div id="sources-list" class="source-grid"></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2>数据源接入</h2>
+          <span class="badge badge-accent">Onboarding</span>
+        </div>
+        <div class="grid two-up">
+          <article>
+            <h3 class="subheading">URI 导入</h3>
+            <form id="source-uri-form" class="stack-form">
+              <label>
+                <span>数据源名称</span>
+                <input id="uri-source-name" type="text" placeholder="例如 生产主库" />
+              </label>
+              <label>
+                <span>数据库 URI</span>
+                <textarea id="source-uri" rows="3" placeholder="mysql+pymysql://user:password@host:3306/new-api?charset=utf8mb4"></textarea>
+              </label>
+              <div class="inline-actions">
+                <button type="submit" class="button">测试并保存</button>
+                <button type="button" id="scan-local-configs" class="button button-secondary">扫描本机配置</button>
+              </div>
+            </form>
+          </article>
+          <article>
+            <h3 class="subheading">五元组新增</h3>
+            <form id="source-manual-form" class="stack-form">
+              <label>
+                <span>数据源名称</span>
+                <input id="manual-source-name" type="text" placeholder="例如 上海备库" />
+              </label>
+              <label>
+                <span>主机</span>
+                <input id="manual-host" type="text" placeholder="127.0.0.1" />
+              </label>
+              <label>
+                <span>端口</span>
+                <input id="manual-port" type="number" value="3306" />
+              </label>
+              <label>
+                <span>数据库名</span>
+                <input id="manual-database" type="text" value="new-api" />
+              </label>
+              <label>
+                <span>用户名</span>
+                <input id="manual-user" type="text" placeholder="newapi_stats" />
+              </label>
+              <label>
+                <span>密码</span>
+                <input id="manual-password" type="password" />
+              </label>
+              <div class="inline-actions">
+                <button type="submit" class="button button-secondary">保存数据源</button>
+              </div>
+            </form>
+          </article>
+        </div>
+        <pre id="source-save-output" class="code-block compact-code">尚未执行数据源保存操作。</pre>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2>统计查询</h2>
+          <span class="badge badge-accent">Live</span>
+        </div>
+        <form id="query-form" class="query-grid">
+          <label class="query-field">
+            <span>数据源</span>
+            <select id="source-id" name="source_id"></select>
+          </label>
+          <label class="query-field">
+            <span>令牌名称</span>
+            <input id="token-name" name="token_name" type="text" placeholder="例如 team-prod-token" list="token-suggestions" />
+            <datalist id="token-suggestions"></datalist>
+          </label>
+          <label class="query-field">
+            <span>模型名称</span>
+            <input id="model-name" name="model_name" type="text" placeholder="例如 gpt-5.4" />
+          </label>
+          <label class="query-field">
+            <span>用户名</span>
+            <input id="username" name="username" type="text" placeholder="例如 alice" />
+          </label>
+          <label class="query-field">
+            <span>分组</span>
+            <input id="group-name" name="group_name" type="text" placeholder="例如 OpenAi-Free" />
+          </label>
+          <label class="query-field">
+            <span>渠道 ID</span>
+            <input id="channel-id" name="channel_id" type="number" min="1" placeholder="例如 1" />
+          </label>
+          <label class="query-field">
+            <span>Request ID</span>
+            <input id="request-id" name="request_id" type="text" placeholder="精确匹配" />
+          </label>
+          <label class="query-field">
+            <span>IP</span>
+            <input id="ip" name="ip" type="text" placeholder="精确匹配 IP" />
+          </label>
+          <label class="query-field query-time-start">
+            <span>开始时间</span>
+            <input id="start-time" name="start_time" type="datetime-local" />
+          </label>
+          <label class="query-field query-time-end">
+            <span>结束时间</span>
+            <input id="end-time" name="end_time" type="datetime-local" />
+          </label>
+          <div class="query-actions">
+            <button type="submit" class="button">查询</button>
+            <button type="button" id="reset-form" class="button button-secondary">重置</button>
+            <button type="button" id="save-filter" class="button button-secondary">保存筛选</button>
+            <button type="button" id="restore-filter" class="button button-secondary">恢复筛选</button>
+            <a id="export-link" class="button button-secondary" href="#" target="_blank" rel="noreferrer">导出 CSV</a>
+            <a id="export-xlsx-link" class="button button-secondary" href="#" target="_blank" rel="noreferrer">导出 XLSX</a>
+          </div>
+        </form>
+        <div id="column-settings-panel" class="column-settings hidden">
+          <label><input type="checkbox" data-column="id" checked /> 请求ID</label>
+          <label><input type="checkbox" data-column="created_at" checked /> 调用时间</label>
+          <label><input type="checkbox" data-column="token_name" checked /> 令牌名称</label>
+          <label><input type="checkbox" data-column="model_name" checked /> 模型名称</label>
+          <label><input type="checkbox" data-column="quota" checked /> 额度</label>
+          <label><input type="checkbox" data-column="cost_total" checked /> 总花费</label>
+          <label><input type="checkbox" data-column="pure_prompt_tokens" checked /> 输入Token</label>
+          <label><input type="checkbox" data-column="cost_input" checked /> 输入花费</label>
+          <label><input type="checkbox" data-column="completion_tokens" checked /> 输出Token</label>
+          <label><input type="checkbox" data-column="cost_output" checked /> 输出花费</label>
+          <label><input type="checkbox" data-column="cache_tokens" checked /> 缓存读Token</label>
+          <label><input type="checkbox" data-column="cost_cache_read" checked /> 缓存读花费</label>
+          <label><input type="checkbox" data-column="cache_write_tokens_total" checked /> 缓存创建Token</label>
+          <label><input type="checkbox" data-column="cost_cache_write" checked /> 缓存创建花费</label>
+        </div>
+      </section>
+
+      <section class="summary-grid">
+        <article class="summary-card">
+          <span class="summary-label">消耗总 Token</span>
+          <strong id="summary-total-tokens-consumed">-</strong>
+        </article>
+        <article class="summary-card">
+          <span class="summary-label">输入 Token</span>
+          <strong id="summary-input-tokens-total">-</strong>
+        </article>
+        <article class="summary-card">
+          <span class="summary-label">输出 Token</span>
+          <strong id="summary-output-tokens-total">-</strong>
+        </article>
+        <article class="summary-card">
+          <span class="summary-label">缓存读取 Token</span>
+          <strong id="summary-cache-read-tokens-total">-</strong>
+        </article>
+        <article class="summary-card">
+          <span class="summary-label">缓存创建 Token</span>
+          <strong id="summary-cache-write-tokens-total">-</strong>
+        </article>
+        <article class="summary-card">
+          <span class="summary-label">实际总花费</span>
+          <strong id="summary-actual-cost-total">-</strong>
+        </article>
+        <article class="summary-card">
+          <span class="summary-label">输入花费</span>
+          <strong id="summary-input-cost-total">-</strong>
+        </article>
+        <article class="summary-card">
+          <span class="summary-label">输出花费</span>
+          <strong id="summary-output-cost-total">-</strong>
+        </article>
+        <article class="summary-card">
+          <span class="summary-label">缓存读取花费</span>
+          <strong id="summary-cache-read-cost-total">-</strong>
+        </article>
+        <article class="summary-card">
+          <span class="summary-label">缓存创建花费</span>
+          <strong id="summary-cache-write-cost-total">-</strong>
+        </article>
+        <article class="summary-card">
+          <span class="summary-label">缓存节省估算</span>
+          <strong id="summary-cache-savings-total">-</strong>
+        </article>
+        <article class="summary-card">
+          <span class="summary-label">总请求数</span>
+          <strong id="summary-request-count">-</strong>
+        </article>
+        <article class="summary-card">
+          <span class="summary-label">平均 RPM</span>
+          <strong id="summary-avg-rpm">-</strong>
+        </article>
+        <article class="summary-card">
+          <span class="summary-label">平均 TPM</span>
+          <strong id="summary-avg-tpm">-</strong>
+        </article>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2>图表分析</h2>
+          <div class="panel-actions">
+            <span id="charts-meta" class="badge badge-muted">未查询</span>
+            <button id="export-charts-image" type="button" class="button button-secondary">导出图表 PNG</button>
+          </div>
+        </div>
+        <div class="charts-grid">
+          <article class="chart-card">
+            <h3 class="subheading">总花费趋势</h3>
+            <div id="chart-cost-trend" class="chart-box">请先执行查询。</div>
+          </article>
+          <article class="chart-card">
+            <h3 class="subheading">请求数趋势</h3>
+            <div id="chart-request-trend" class="chart-box">请先执行查询。</div>
+          </article>
+          <article class="chart-card">
+            <h3 class="subheading">成本构成</h3>
+            <div id="chart-cost-stack" class="chart-box">请先执行查询。</div>
+          </article>
+          <article class="chart-card">
+            <h3 class="subheading">模型花费排行</h3>
+            <div id="chart-model-ranking" class="chart-box">请先执行查询。</div>
+          </article>
+          <article class="chart-card">
+            <h3 class="subheading">模型请求数排行</h3>
+            <div id="chart-model-request-ranking" class="chart-box">请先执行查询。</div>
+          </article>
+          <article class="chart-card">
+            <h3 class="subheading">分组花费排行</h3>
+            <div id="chart-group-ranking" class="chart-box">请先执行查询。</div>
+          </article>
+          <article class="chart-card">
+            <h3 class="subheading">渠道花费排行</h3>
+            <div id="chart-channel-ranking" class="chart-box">请先执行查询。</div>
+          </article>
+          <article class="chart-card">
+            <h3 class="subheading">缓存节省估算</h3>
+            <div id="chart-cache-savings" class="chart-box">请先执行查询。</div>
+          </article>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2>明细结果</h2>
+          <span id="details-meta" class="badge badge-muted">未查询</span>
+        </div>
+        <div class="table-wrap">
+          <table class="result-table">
+            <thead>
+              <tr>
+                <th data-column="id"><button type="button" class="sort-button" data-sort-field="id">请求ID</button></th>
+                <th data-column="created_at"><button type="button" class="sort-button" data-sort-field="created_at">调用时间</button></th>
+                <th data-column="token_name">令牌名称</th>
+                <th data-column="model_name">模型名称</th>
+                <th data-column="quota"><button type="button" class="sort-button" data-sort-field="quota">额度</button></th>
+                <th data-column="cost_total"><button type="button" class="sort-button" data-sort-field="cost_total">总花费</button></th>
+                <th data-column="pure_prompt_tokens">输入Token</th>
+                <th data-column="cost_input"><button type="button" class="sort-button" data-sort-field="cost_input">输入花费</button></th>
+                <th data-column="completion_tokens">输出Token</th>
+                <th data-column="cost_output"><button type="button" class="sort-button" data-sort-field="cost_output">输出花费</button></th>
+                <th data-column="cache_tokens">缓存读Token</th>
+                <th data-column="cost_cache_read"><button type="button" class="sort-button" data-sort-field="cost_cache_read">缓存读花费</button></th>
+                <th data-column="cache_write_tokens_total">缓存创建Token</th>
+                <th data-column="cost_cache_write">缓存创建花费</th>
+              </tr>
+            </thead>
+            <tbody id="details-body">
+              <tr>
+                <td colspan="14" class="table-empty">请先选择数据源并执行查询。</td>
+              </tr>
+            </tbody>
+            <tfoot id="details-foot">
+              <tr class="totals-row">
+                <td colspan="4">合计</td>
+                <td class="numeric" id="foot-quota-total" data-column="quota">-</td>
+                <td class="numeric" id="foot-actual-cost-total" data-column="cost_total">-</td>
+                <td class="numeric" id="foot-input-tokens-total" data-column="pure_prompt_tokens">-</td>
+                <td class="numeric" id="foot-input-cost-total" data-column="cost_input">-</td>
+                <td class="numeric" id="foot-output-tokens-total" data-column="completion_tokens">-</td>
+                <td class="numeric" id="foot-output-cost-total" data-column="cost_output">-</td>
+                <td class="numeric" id="foot-cache-read-tokens-total" data-column="cache_tokens">-</td>
+                <td class="numeric" id="foot-cache-read-cost-total" data-column="cost_cache_read">-</td>
+                <td class="numeric" id="foot-cache-write-tokens-total" data-column="cache_write_tokens_total">-</td>
+                <td class="numeric" id="foot-cache-write-cost-total" data-column="cost_cache_write">-</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+        <div class="pagination-bar">
+          <button id="prev-page" type="button" class="button button-secondary">上一页</button>
+          <span id="page-info" class="badge badge-muted">第 1 页</span>
+          <button id="next-page" type="button" class="button button-secondary">下一页</button>
+          <label class="page-size-label">
+            <span>每页</span>
+            <select id="page-size-select">
+              <option value="10">10</option>
+              <option value="20" selected>20</option>
+              <option value="50">50</option>
+              <option value="100">100</option>
+            </select>
+          </label>
+        </div>
+      </section>
+      </div>
+    </main>
+
+    <script src="/static/js/app.js?v=20260415-1"></script>
+  </body>
+</html>

@@ -1,0 +1,47 @@
+name: new-api-log-statistics
+
+services:
+  app:
+    image: new-api-log-statistics-app:local
+    container_name: new-api-log-statistics-app
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    restart: unless-stopped
+    env_file:
+      - ../.env
+    environment:
+      TZ: ${TZ:-Asia/Shanghai}
+      SOURCE_CONFIG_PATH: /app/config/sources.yml
+      APP_LOG_PATH: /app/runtime/app.log
+      ACCESS_LOG_PATH: /app/runtime/access.log
+      AUDIT_LOG_PATH: /app/runtime/audit.log
+      REDIS_URL: ${REDIS_URL:-}
+    ports:
+      - "${APP_PORT:-18080}:8080"
+    volumes:
+      - ../config:/app/config
+      - ../runtime:/app/runtime
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/api/health', timeout=3).read()"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  nginx:
+    container_name: new-api-log-statistics-nginx
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    depends_on:
+      - app
+    ports:
+      - "${NGINX_PORT:-18090}:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+
+  redis:
+    container_name: new-api-log-statistics-redis
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    profiles: ["cache"]
