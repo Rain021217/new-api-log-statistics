@@ -1,6 +1,24 @@
 # new-api-log-statistics
 
-`new-api-log-statistics` 是一个面向 `new-api` 日志数据库的独立统计面板。它提供筛选、汇总、图表、分页明细、CSV/XLSX 导出、多数据源接入，以及可选 Redis 缓存，适合做账单复盘、令牌成本分析、渠道模型对账。
+[![Release](https://img.shields.io/github/v/release/Rain021217/new-api-log-statistics?display_name=tag)](https://github.com/Rain021217/new-api-log-statistics/releases/latest)
+[![CI](https://img.shields.io/github/actions/workflow/status/Rain021217/new-api-log-statistics/ci.yml?branch=main)](https://github.com/Rain021217/new-api-log-statistics/actions/workflows/ci.yml)
+[![License](https://img.shields.io/github/license/Rain021217/new-api-log-statistics)](./LICENSE)
+
+`new-api-log-statistics` 是一个面向 `new-api` 日志数据库的独立统计与账单分析面板，提供筛选、汇总、图表、分页明细、CSV/XLSX 导出、多数据源接入，以及可选 Redis 缓存与登录鉴权。
+
+适合用于：
+
+- 令牌成本分析
+- 模型与渠道对账
+- 缓存命中收益观察
+- `new-api` 日志账单复盘
+
+## 快速入口
+
+- 最新发布：<https://github.com/Rain021217/new-api-log-statistics/releases/latest>
+- 用户部署说明：[`README.md`](./README.md)
+- 维护者发布说明：[`docs/maintainer-publishing.zh-CN.md`](./docs/maintainer-publishing.zh-CN.md)
+- Release Notes：[`docs/release-notes-v0.1.0.md`](./docs/release-notes-v0.1.0.md)
 
 这个仓库同时支持两种使用方式：
 
