@@ -18,7 +18,7 @@ make verify-github
 生成后的目录是：
 
 ```text
-dist/new-api-log-statistics-0.1.0-github
+dist/new-api-log-statistics-0.2.0-github
 ```
 
 ## 2. 在 GitHub 网页端新建仓库
@@ -105,21 +105,21 @@ git@github.com:<your-name>/new-api-log-statistics.git
 进入已经准备好的目录：
 
 ```bash
-cd /home/rain/projects/new-api-log-statistics/dist/new-api-log-statistics-0.1.0-github
+cd /home/rain/projects/new-api-log-statistics/dist/new-api-log-statistics-0.2.0-github
 ```
 
 这个目录里我已经替你准备好了：
 
 1. `git init`
 2. 首个提交
-3. `v0.1.0` tag
+3. `v0.2.0` tag
 
 你只需要补远程并推送：
 
 ```bash
 git remote add origin <你刚才复制的仓库地址>
 git push -u origin main
-git push origin v0.1.0
+git push origin v0.2.0
 ```
 
 ## 8. 在 GitHub 网页端创建 Release
@@ -130,21 +130,21 @@ git push origin v0.1.0
 
 1. 点击右侧或顶部的 `Releases`
 2. 点击 `Draft a new release`
-3. 选择标签：`v0.1.0`
+3. 选择标签：`v0.2.0`
 4. `Release title` 填：
 
 ```text
-v0.1.0
+v0.2.0
 ```
 
 5. `Describe this release`
    可以直接粘贴下面这个文件内容：
 
-- [`docs/release-notes-v0.1.0.md`](/home/rain/projects/new-api-log-statistics/docs/release-notes-v0.1.0.md#L1)
+- [`docs/release-notes-v0.2.0.md`](/home/rain/projects/new-api-log-statistics/docs/release-notes-v0.2.0.md#L1)
 
 6. 在附件区域上传这个发布包：
 
-- [`new-api-log-statistics-0.1.0.tar.gz`](/home/rain/projects/new-api-log-statistics/dist/new-api-log-statistics-0.1.0.tar.gz)
+- [`new-api-log-statistics-0.2.0.tar.gz`](/home/rain/projects/new-api-log-statistics/dist/new-api-log-statistics-0.2.0.tar.gz)
 
 7. 最后点击 `Publish release`
 

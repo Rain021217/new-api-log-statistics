@@ -18,7 +18,7 @@
 - 最新发布：<https://github.com/Rain021217/new-api-log-statistics/releases/latest>
 - 用户部署说明：[`README.md`](./README.md)
 - 维护者发布说明：[`docs/maintainer-publishing.zh-CN.md`](./docs/maintainer-publishing.zh-CN.md)
-- Release Notes：[`docs/release-notes-v0.1.0.md`](./docs/release-notes-v0.1.0.md)
+- Release Notes：[`docs/release-notes-v0.2.0.md`](./docs/release-notes-v0.2.0.md)
 
 这个仓库同时支持两种使用方式：
 
@@ -110,7 +110,7 @@ make init-config
 
 ```dotenv
 APP_TITLE=new-api-log-statistics
-APP_VERSION=0.1.0
+APP_VERSION=0.2.0
 APP_ENV=development
 APP_HOST=0.0.0.0
 APP_PORT=18080
@@ -629,8 +629,8 @@ make verify-release
 
 生成后会得到：
 
-- `dist/new-api-log-statistics-0.1.0/`
-- `dist/new-api-log-statistics-0.1.0.tar.gz`
+- `dist/new-api-log-statistics-0.2.0/`
+- `dist/new-api-log-statistics-0.2.0.tar.gz`
 
 发布包默认不包含这些内容：
 

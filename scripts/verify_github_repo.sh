@@ -6,7 +6,7 @@ TARGET_DIR="${1:-}"
 
 if [[ -z "${TARGET_DIR}" ]]; then
   VERSION="$(awk -F= '/^APP_VERSION=/{print $2}' "${ROOT_DIR}/.env.example" | head -n1)"
-  VERSION="${VERSION:-0.1.0}"
+  VERSION="${VERSION:-0.2.0}"
   TARGET_DIR="${ROOT_DIR}/dist/new-api-log-statistics-${VERSION}-github"
 fi
 
@@ -27,8 +27,10 @@ required_paths=(
   ".github/ISSUE_TEMPLATE/bug_report.yml"
   ".github/ISSUE_TEMPLATE/feature_request.yml"
   ".github/ISSUE_TEMPLATE/config.yml"
+  "docs/github-auth-faq.zh-CN.md"
   "docs/maintainer-publishing.zh-CN.md"
-  "docs/release-notes-v0.1.0.md"
+  "docs/github-web-repository-setup.zh-CN.md"
+  "docs/release-notes-v${VERSION}.md"
   "app/main.py"
   "deploy/docker-compose.yml"
   "config/sources.example.yml"

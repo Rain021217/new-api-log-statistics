@@ -22,8 +22,8 @@ make verify-release
 
 产物：
 
-- `dist/new-api-log-statistics-0.1.0/`
-- `dist/new-api-log-statistics-0.1.0.tar.gz`
+- `dist/new-api-log-statistics-0.2.0/`
+- `dist/new-api-log-statistics-0.2.0.tar.gz`
 
 ## 3. 生成 GitHub-ready 仓库目录
 
@@ -42,15 +42,15 @@ make verify-github
 
 产物：
 
-- `dist/new-api-log-statistics-0.1.0-github/`
-- `dist/new-api-log-statistics-0.1.0-github.tar.gz`
+- `dist/new-api-log-statistics-0.2.0-github/`
+- `dist/new-api-log-statistics-0.2.0-github.tar.gz`
 
 ## 4. GitHub 上传步骤
 
 建议不要直接拿当前工作目录上传，而是进入 GitHub-ready 目录：
 
 ```bash
-cd dist/new-api-log-statistics-0.1.0-github
+cd dist/new-api-log-statistics-0.2.0-github
 git init
 git add .
 git commit -m "Initial release"
@@ -59,11 +59,15 @@ git remote add origin <your-github-repo-url>
 git push -u origin main
 ```
 
+如果你希望按网页端一步一步创建空仓库，再回到本地推送，请先看：
+
+- [`github-web-repository-setup.zh-CN.md`](/home/rain/projects/new-api-log-statistics/docs/github-web-repository-setup.zh-CN.md#L1)
+
 ## 5. 打 tag
 
 ```bash
-git tag -a v0.1.0 -m "Release v0.1.0"
-git push origin v0.1.0
+git tag -a v0.2.0 -m "Release v0.2.0"
+git push origin v0.2.0
 ```
 
 ## 6. GitHub Release 页面
@@ -79,13 +83,13 @@ GitHub 的 Release 页面不是通过 `git push` 自动上传附件的。
 
 推荐把这个文件作为 Release 附件：
 
-- `dist/new-api-log-statistics-0.1.0.tar.gz`
+- `dist/new-api-log-statistics-0.2.0.tar.gz`
 
 如果使用 `gh` CLI：
 
 ```bash
-gh release create v0.1.0 \
-  /absolute/path/to/dist/new-api-log-statistics-0.1.0.tar.gz \
-  --title "v0.1.0" \
-  --notes-file docs/release-notes-v0.1.0.md
+gh release create v0.2.0 \
+  /absolute/path/to/dist/new-api-log-statistics-0.2.0.tar.gz \
+  --title "v0.2.0" \
+  --notes-file docs/release-notes-v0.2.0.md
 ```

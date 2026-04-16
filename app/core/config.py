@@ -8,7 +8,7 @@ class Settings:
         project_root = Path(__file__).resolve().parents[2]
         self.project_root = project_root
         self.app_title = os.getenv("APP_TITLE", "new-api-log-statistics")
-        self.app_version = os.getenv("APP_VERSION", "0.1.0")
+        self.app_version = os.getenv("APP_VERSION", "0.2.0")
         self.app_host = os.getenv("APP_HOST", "0.0.0.0")
         self.app_port = int(os.getenv("APP_PORT", "8080"))
         self.app_env = os.getenv("APP_ENV", "development")

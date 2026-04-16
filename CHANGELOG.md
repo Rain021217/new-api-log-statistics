@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.0
+
+- Added first-class PostgreSQL data source support across source management, health checks, metadata, summary, details, trend, breakdown, charts, and export APIs
+- Added source deletion API and frontend delete action
+- Added PostgreSQL compatibility and support documentation
+- Updated release tooling and docs for the `v0.2.0` release cycle
+
 ## 0.1.0
 
 - Initial release of `new-api-log-statistics`

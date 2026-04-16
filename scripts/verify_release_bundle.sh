@@ -6,7 +6,7 @@ TARGET_DIR="${1:-}"
 
 if [[ -z "${TARGET_DIR}" ]]; then
   VERSION="$(awk -F= '/^APP_VERSION=/{print $2}' "${ROOT_DIR}/.env.example" | head -n1)"
-  VERSION="${VERSION:-0.1.0}"
+  VERSION="${VERSION:-0.2.0}"
   TARGET_DIR="${ROOT_DIR}/dist/new-api-log-statistics-${VERSION}"
 fi
 
