@@ -10,6 +10,7 @@ from app.schemas.source import (
 from app.services.local_import import scan_local_new_api_sources
 from app.services.audit_log import write_audit_event
 from app.services.source_registry import (
+    delete_source_definition,
     get_runtime_capabilities,
     get_source_registry,
     ping_source_definition,
@@ -71,6 +72,22 @@ def update_source(source_id: str, payload: SourceUpsertRequest) -> dict:
         },
     )
     return success_response(source_public.model_dump(mode="json"), message="Source updated")
+
+
+@router.delete("/{source_id}")
+def delete_source(source_id: str) -> dict:
+    try:
+        source_public = delete_source_definition(source_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail=f"Unknown source_id: {source_id}")
+    write_audit_event(
+        "source_deleted",
+        {
+            "source_id": source_public.source_id,
+            "source_name": source_public.source_name,
+        },
+    )
+    return success_response(source_public.model_dump(mode="json"), message="Source deleted")
 
 
 @router.post("/import-uri")

@@ -37,6 +37,7 @@
 - `CSV`、`XLSX`、图表 `PNG` 导出
 - 多数据源管理
 - 可选 `Redis` 查询缓存
+- 原生支持 `MySQL` / `MariaDB` / `PostgreSQL` 数据源
 
 ## 2. 目录说明
 
@@ -268,11 +269,11 @@ sources:
 - `source_name`
   页面上显示的数据源名称。示例：`生产主库`
 - `db_type`
-  数据库类型，目前填写 `mysql` 或 `mariadb`
+  数据库类型，目前填写 `mysql`、`mariadb` 或 `postgres`
 - `host`
   数据库主机名或 IP
 - `port`
-  数据库端口，MySQL 默认 `3306`
+  数据库端口，MySQL / MariaDB 默认 `3306`，PostgreSQL 默认 `5432`
 - `user`
   只读数据库用户名
 - `password`
@@ -280,7 +281,7 @@ sources:
 - `database`
   `new-api` 使用的数据库名，常见是 `new-api`
 - `charset`
-  一般保持 `utf8mb4`
+  MySQL / MariaDB 一般保持 `utf8mb4`，PostgreSQL 可以留空
 - `timezone`
   一般保持 `Asia/Shanghai`
 - `enabled`
@@ -311,6 +312,32 @@ sources:
     schema_version_hint: ""
     notes: "Primary read-only analytics source."
 ```
+
+### 5.3 PostgreSQL 示例
+
+```yaml
+sources:
+  - source_id: prod-pg
+    source_name: Production PostgreSQL
+    db_type: postgres
+    host: 10.0.0.23
+    port: 5432
+    user: newapi_readonly
+    password: your_password_here
+    database: new-api
+    charset: ""
+    timezone: Asia/Shanghai
+    enabled: true
+    readonly: true
+    schema_version_hint: ""
+    notes: "PostgreSQL read-only analytics source."
+```
+
+补充说明：
+
+- PostgreSQL 推荐使用 `db_type: postgres`
+- PostgreSQL URI 导入支持 `postgres://` 和 `postgresql://`
+- PostgreSQL 不使用 `charset` 参数建立连接，留空即可
 
 ## 6. 如何获取数据库连接信息
 

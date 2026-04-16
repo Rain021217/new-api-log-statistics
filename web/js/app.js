@@ -33,6 +33,7 @@ const exportChartsImageButton = document.getElementById("export-charts-image");
 const uriSourceNameInput = document.getElementById("uri-source-name");
 const sourceUriInput = document.getElementById("source-uri");
 const manualSourceNameInput = document.getElementById("manual-source-name");
+const manualDbTypeInput = document.getElementById("manual-db-type");
 const manualHostInput = document.getElementById("manual-host");
 const manualPortInput = document.getElementById("manual-port");
 const manualDatabaseInput = document.getElementById("manual-database");
@@ -304,7 +305,12 @@ function renderSourceCard(item) {
   const article = document.createElement("article");
   article.className = "source-card";
   article.innerHTML = `
-    <h3>${item.source_name}</h3>
+    <div class="source-card-header">
+      <h3>${item.source_name}</h3>
+      <div class="source-card-actions">
+        ${sourceCapabilities.source_config_writable ? `<button type="button" class="button button-secondary source-delete-button">删除</button>` : ""}
+      </div>
+    </div>
     <p class="source-meta">
       source_id: ${item.source_id}<br />
       type: ${item.db_type}<br />
@@ -315,7 +321,32 @@ function renderSourceCard(item) {
       password saved: ${item.has_password ? "yes" : "no"}
     </p>
   `;
+  const deleteButton = article.querySelector(".source-delete-button");
+  if (deleteButton) {
+    deleteButton.addEventListener("click", async () => {
+      await deleteSource(item);
+    });
+  }
   return article;
+}
+
+async function fetchJsonWithMethod(url, method, options = {}) {
+  const response = await fetch(url, {
+    method,
+    headers: { Accept: "application/json" },
+    credentials: "same-origin",
+  });
+  if (response.status === 401 && !options.allowUnauthorized) {
+    await handleUnauthorized();
+    throw new Error("需要登录");
+  }
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`${response.status} ${response.statusText}: ${text}`);
+  }
+  queryCache.clear();
+  bundledQueryCache.clear();
+  return response.json();
 }
 
 function getVisibleColumns() {
@@ -802,6 +833,7 @@ async function saveSourceManual(event) {
   }
   sourceSaveOutput.textContent = "正在保存手工数据源...";
   try {
+    const dbType = manualDbTypeInput.value || "mysql";
     const payload = {
       source_name: manualSourceNameInput.value.trim(),
       host: manualHostInput.value.trim(),
@@ -809,8 +841,8 @@ async function saveSourceManual(event) {
       database: manualDatabaseInput.value.trim(),
       user: manualUserInput.value.trim(),
       password: manualPasswordInput.value,
-      db_type: "mysql",
-      charset: "utf8mb4",
+      db_type: dbType,
+      charset: dbType === "postgres" ? "" : "utf8mb4",
       timezone: "Asia/Shanghai",
       readonly: true,
     };
@@ -823,6 +855,32 @@ async function saveSourceManual(event) {
     await loadSources();
   } catch (error) {
     sourceSaveOutput.textContent = `手工保存失败: ${String(error)}`;
+  }
+}
+
+async function deleteSource(item) {
+  if (isAuthLocked()) {
+    sourceSaveOutput.textContent = "请先登录后再删除数据源。";
+    return;
+  }
+  const confirmed = window.confirm(`确认删除数据源 "${item.source_name}" (${item.source_id}) 吗？`);
+  if (!confirmed) return;
+  sourceSaveOutput.textContent = `正在删除数据源 ${item.source_name}...`;
+  try {
+    const result = await fetchJsonWithMethod(`/api/sources/${encodeURIComponent(item.source_id)}`, "DELETE");
+    if (sourceSelect.value === item.source_id) {
+      localStorage.removeItem(STORAGE_KEYS.recentSource);
+      fillSummary({});
+      detailsMeta.textContent = "当前数据源已删除";
+      chartsMeta.textContent = "当前数据源已删除";
+      detailsBody.innerHTML = `<tr><td colspan="14" class="table-empty">当前数据源已删除，请重新选择数据源。</td></tr>`;
+      renderCharts({});
+      updatePagination({ page: 1, page_size: currentPageSize, total: 0 });
+    }
+    sourceSaveOutput.textContent = JSON.stringify(result, null, 2);
+    await loadSources();
+  } catch (error) {
+    sourceSaveOutput.textContent = `删除数据源失败: ${String(error)}`;
   }
 }
 
@@ -888,6 +946,13 @@ sourceUriForm.addEventListener("submit", saveSourceFromUri);
 sourceManualForm.addEventListener("submit", saveSourceManual);
 scanLocalConfigsButton.addEventListener("click", scanLocalConfigs);
 exportChartsImageButton.addEventListener("click", exportChartsAsPng);
+manualDbTypeInput.addEventListener("change", () => {
+  if (manualDbTypeInput.value === "postgres" && manualPortInput.value === "3306") {
+    manualPortInput.value = "5432";
+  } else if ((manualDbTypeInput.value === "mysql" || manualDbTypeInput.value === "mariadb") && manualPortInput.value === "5432") {
+    manualPortInput.value = "3306";
+  }
+});
 
 columnSettingsToggle.addEventListener("click", () => columnSettingsPanel.classList.toggle("hidden"));
 columnSettingInputs.forEach((input) => {

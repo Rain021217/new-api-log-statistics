@@ -5,9 +5,10 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+from pydantic import ValidationError
 
 from app.core.config import get_settings
-from app.db.mysql import build_mysql_dsn_preview, inspect_mysql_source, ping_mysql
+from app.db.dispatch import get_source_driver
 from app.schemas.source import (
     SourceDefinition,
     SourcePingResult,
@@ -19,12 +20,34 @@ from app.services.audit_log import write_audit_event
 logger = logging.getLogger(__name__)
 
 
+def _normalize_source_items(items: list[Any]) -> list[SourceDefinition]:
+    sources: list[SourceDefinition] = []
+    for index, item in enumerate(items):
+        if not isinstance(item, dict):
+            logger.warning("Skipping invalid source entry at index=%s because it is not an object", index)
+            continue
+        required_fields = ("source_id", "source_name", "host", "user", "database")
+        if any(not str(item.get(field, "")).strip() for field in required_fields):
+            logger.warning(
+                "Skipping invalid source entry at index=%s because required fields are blank",
+                index,
+            )
+            continue
+        try:
+            sources.append(SourceDefinition(**item))
+        except ValidationError as exc:
+            logger.warning("Skipping invalid source entry at index=%s: %s", index, exc)
+    return sources
+
+
 def _load_sources_from_json(raw: str) -> list[SourceDefinition]:
     if not raw.strip():
         return []
     parsed = json.loads(raw)
     items = parsed.get("sources", parsed) if isinstance(parsed, dict) else parsed
-    return [SourceDefinition(**item) for item in items]
+    if not isinstance(items, list):
+        raise ValueError("Invalid sources config JSON format")
+    return _normalize_source_items(items)
 
 
 def _load_sources_from_file(path: Path) -> list[SourceDefinition]:
@@ -34,7 +57,7 @@ def _load_sources_from_file(path: Path) -> list[SourceDefinition]:
     items = raw.get("sources", raw) if isinstance(raw, dict) else raw
     if not isinstance(items, list):
         raise ValueError(f"Invalid sources config format in {path}")
-    return [SourceDefinition(**item) for item in items]
+    return _normalize_source_items(items)
 
 
 class SourceRegistry:
@@ -59,9 +82,10 @@ class SourceRegistry:
 
 def ping_source_definition(source: SourceDefinition) -> SourcePingResult:
     settings = get_settings()
+    driver = get_source_driver(source)
     try:
-        ping_mysql(source, timeout_seconds=settings.request_timeout_seconds)
-        checks = inspect_mysql_source(source, timeout_seconds=settings.request_timeout_seconds)
+        driver.ping(source, timeout_seconds=settings.request_timeout_seconds)
+        checks = driver.inspect(source, timeout_seconds=settings.request_timeout_seconds)
         message = "Connection successful"
         ok = True
     except Exception as exc:  # pragma: no cover - runtime diagnostic path
@@ -82,7 +106,7 @@ def ping_source_definition(source: SourceDefinition) -> SourcePingResult:
         source_id=source.source_id,
         source_name=source.source_name,
         message=message,
-        dsn_preview=build_mysql_dsn_preview(source),
+        dsn_preview=driver.dsn_preview(source),
         checks=checks,
     )
 
@@ -145,6 +169,26 @@ def save_source_definition(payload: SourceUpsertRequest) -> SourcePublic:
     if not updated:
         items.append(source)
 
+    _write_sources_to_file(settings.source_config_path, items)
+    reset_source_registry_cache()
+    return SourcePublic.from_definition(source)
+
+
+def delete_source_definition(source_id: str) -> SourcePublic:
+    settings = get_settings()
+    if settings.source_config_json:
+        raise ValueError("SOURCE_CONFIG_JSON mode is read-only and cannot persist changes")
+
+    registry = get_source_registry()
+    source = registry.get_source(source_id)
+    if source is None:
+        raise KeyError(source_id)
+
+    items = [
+        item
+        for item in registry.list_source_definitions()
+        if item.source_id != source_id
+    ]
     _write_sources_to_file(settings.source_config_path, items)
     reset_source_registry_cache()
     return SourcePublic.from_definition(source)

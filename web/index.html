@@ -101,7 +101,7 @@
               </label>
               <label>
                 <span>数据库 URI</span>
-                <textarea id="source-uri" rows="3" placeholder="mysql+pymysql://user:password@host:3306/new-api?charset=utf8mb4"></textarea>
+                <textarea id="source-uri" rows="3" placeholder="mysql+pymysql://user:password@host:3306/new-api?charset=utf8mb4 或 postgresql://user:password@host:5432/new-api"></textarea>
               </label>
               <div class="inline-actions">
                 <button type="submit" class="button">测试并保存</button>
@@ -115,6 +115,14 @@
               <label>
                 <span>数据源名称</span>
                 <input id="manual-source-name" type="text" placeholder="例如 上海备库" />
+              </label>
+              <label>
+                <span>数据库类型</span>
+                <select id="manual-db-type">
+                  <option value="mysql" selected>MySQL</option>
+                  <option value="mariadb">MariaDB</option>
+                  <option value="postgres">PostgreSQL</option>
+                </select>
               </label>
               <label>
                 <span>主机</span>

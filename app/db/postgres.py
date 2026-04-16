@@ -1,56 +1,56 @@
 from urllib.parse import quote_plus
 
-import pymysql
+import psycopg
+from psycopg.rows import dict_row
 
 from app.schemas.source import SourceDefinition
 
 
-def create_mysql_connection(
+def create_postgres_connection(
     source: SourceDefinition,
     *,
     timeout_seconds: int = 5,
     dict_rows: bool = True,
     autocommit: bool = True,
 ):
-    cursor_class = pymysql.cursors.DictCursor if dict_rows else pymysql.cursors.Cursor
-    return pymysql.connect(
+    connection = psycopg.connect(
         host=source.host,
         port=source.port,
         user=source.user,
         password=source.password,
-        database=source.database,
-        charset=source.charset or "utf8mb4",
+        dbname=source.database,
         connect_timeout=timeout_seconds,
-        read_timeout=timeout_seconds,
-        write_timeout=timeout_seconds,
-        cursorclass=cursor_class,
         autocommit=autocommit,
+        row_factory=dict_row if dict_rows else None,
     )
+    return connection
 
 
-def validate_mysql_connection(connection) -> None:
-    connection.ping(reconnect=True)
+def validate_postgres_connection(connection) -> None:
+    if getattr(connection, "closed", False):
+        raise RuntimeError("connection is closed")
+    with connection.cursor() as cursor:
+        cursor.execute("SELECT 1")
+        cursor.fetchone()
 
 
-def build_mysql_dsn(source: SourceDefinition) -> str:
+def build_postgres_dsn(source: SourceDefinition) -> str:
     password = quote_plus(source.password or "")
-    charset = source.charset or "utf8mb4"
     return (
-        f"mysql+pymysql://{source.user}:{password}"
-        f"@{source.host}:{source.port}/{source.database}?charset={charset}"
+        f"postgresql+psycopg://{source.user}:{password}"
+        f"@{source.host}:{source.port}/{source.database}"
     )
 
 
-def build_mysql_dsn_preview(source: SourceDefinition) -> str:
-    charset = source.charset or "utf8mb4"
+def build_postgres_dsn_preview(source: SourceDefinition) -> str:
     return (
-        f"mysql+pymysql://{source.user}:***"
-        f"@{source.host}:{source.port}/{source.database}?charset={charset}"
+        f"postgresql+psycopg://{source.user}:***"
+        f"@{source.host}:{source.port}/{source.database}"
     )
 
 
-def ping_mysql(source: SourceDefinition, timeout_seconds: int = 5) -> None:
-    connection = create_mysql_connection(
+def ping_postgres(source: SourceDefinition, timeout_seconds: int = 5) -> None:
+    connection = create_postgres_connection(
         source,
         timeout_seconds=timeout_seconds,
         dict_rows=False,
@@ -64,11 +64,11 @@ def ping_mysql(source: SourceDefinition, timeout_seconds: int = 5) -> None:
         connection.close()
 
 
-def inspect_mysql_source(
+def inspect_postgres_source(
     source: SourceDefinition,
     timeout_seconds: int = 5,
 ) -> dict:
-    connection = create_mysql_connection(
+    connection = create_postgres_connection(
         source,
         timeout_seconds=timeout_seconds,
         dict_rows=True,
@@ -80,7 +80,8 @@ def inspect_mysql_source(
                 """
                 SELECT table_name
                 FROM information_schema.tables
-                WHERE table_schema = %s
+                WHERE table_catalog = %s
+                  AND table_schema = current_schema()
                   AND table_name IN ('logs', 'options', 'tokens', 'channels')
                 """,
                 (source.database,),
@@ -91,9 +92,9 @@ def inspect_mysql_source(
             if "options" in found_tables:
                 cursor.execute(
                     """
-                    SELECT `key`, `value`
+                    SELECT "key", "value"
                     FROM options
-                    WHERE `key` IN (
+                    WHERE "key" IN (
                       'QuotaPerUnit',
                       'USDExchangeRate',
                       'general_setting.quota_display_type',
@@ -106,16 +107,13 @@ def inspect_mysql_source(
 
             cursor.execute(
                 """
-                SELECT DEFAULT_CHARACTER_SET_NAME AS charset_name
-                FROM information_schema.SCHEMATA
-                WHERE SCHEMA_NAME = %s
-                """,
-                (source.database,),
+                SELECT
+                  current_schema() AS schema_name,
+                  current_setting('server_encoding') AS charset_name,
+                  current_setting('TimeZone') AS session_time_zone
+                """
             )
-            schema_info = cursor.fetchone() or {}
-
-            cursor.execute("SELECT @@session.time_zone AS session_time_zone, @@system_time_zone AS system_time_zone")
-            timezone_info = cursor.fetchone() or {}
+            database_info = cursor.fetchone() or {}
 
             latest_log_sample = {}
             if "logs" in found_tables:
@@ -123,9 +121,9 @@ def inspect_mysql_source(
                     """
                     SELECT
                       id,
-                      JSON_UNQUOTE(JSON_EXTRACT(other, '$.request_path')) AS request_path,
-                      JSON_UNQUOTE(JSON_EXTRACT(other, '$.model_ratio')) AS model_ratio,
-                      JSON_UNQUOTE(JSON_EXTRACT(other, '$.completion_ratio')) AS completion_ratio
+                      (other::jsonb ->> 'request_path') AS request_path,
+                      (other::jsonb ->> 'model_ratio') AS model_ratio,
+                      (other::jsonb ->> 'completion_ratio') AS completion_ratio
                     FROM logs
                     WHERE type = 2
                     ORDER BY id DESC
@@ -153,9 +151,10 @@ def inspect_mysql_source(
                 "custom_currency_exchange_rate": options.get("general_setting.custom_currency_exchange_rate", ""),
             },
             "database": {
-                "charset": schema_info.get("charset_name", ""),
-                "session_time_zone": timezone_info.get("session_time_zone", ""),
-                "system_time_zone": timezone_info.get("system_time_zone", ""),
+                "charset": database_info.get("charset_name", ""),
+                "session_time_zone": database_info.get("session_time_zone", ""),
+                "system_time_zone": database_info.get("session_time_zone", ""),
+                "schema_name": database_info.get("schema_name", ""),
             },
             "log_sample": latest_log_sample,
             "compatible": len(missing_required_tables) == 0,

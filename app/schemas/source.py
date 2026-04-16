@@ -4,10 +4,17 @@ from urllib.parse import parse_qs, urlparse
 from pydantic import BaseModel, Field, model_validator
 
 
+SUPPORTED_DB_TYPES = ("mysql", "mariadb", "postgres")
+
+
+def default_port_for_db_type(db_type: str) -> int:
+    return 5432 if db_type == "postgres" else 3306
+
+
 class SourceDefinition(BaseModel):
     source_id: str
     source_name: str
-    db_type: Literal["mysql", "mariadb"] = "mysql"
+    db_type: Literal["mysql", "mariadb", "postgres"] = "mysql"
     host: str
     port: int = 3306
     user: str
@@ -58,7 +65,7 @@ class SourcePublic(BaseModel):
 class SourceConnectionTestRequest(BaseModel):
     source_id: str = "adhoc"
     source_name: str = "Adhoc Source"
-    db_type: Literal["mysql", "mariadb"] = "mysql"
+    db_type: Literal["mysql", "mariadb", "postgres"] = "mysql"
     host: str
     port: int = 3306
     user: str
@@ -93,14 +100,17 @@ class SourceImportUriRequest(BaseModel):
         db_type = "mysql"
         if parsed.scheme.startswith("mariadb"):
             db_type = "mariadb"
-        charset = query.get("charset", ["utf8mb4"])[0]
+        if parsed.scheme.startswith("postgres"):
+            db_type = "postgres"
+        charset_default = "" if db_type == "postgres" else "utf8mb4"
+        charset = query.get("charset", [charset_default])[0]
         source_id = self.source_id or self.source_name.lower().replace(" ", "-")
         return SourceDefinition(
             source_id=source_id,
             source_name=self.source_name,
             db_type=db_type,
             host=parsed.hostname or "",
-            port=parsed.port or 3306,
+            port=parsed.port or default_port_for_db_type(db_type),
             user=parsed.username or "",
             password=parsed.password or "",
             database=(parsed.path or "").lstrip("/"),
@@ -112,7 +122,7 @@ class SourceImportUriRequest(BaseModel):
 class SourceUpsertRequest(BaseModel):
     source_id: Optional[str] = None
     source_name: str
-    db_type: Literal["mysql", "mariadb"] = "mysql"
+    db_type: Literal["mysql", "mariadb", "postgres"] = "mysql"
     host: str
     port: int = 3306
     user: str

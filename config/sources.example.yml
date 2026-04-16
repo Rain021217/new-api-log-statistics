@@ -15,3 +15,18 @@ sources:
     readonly: true
     schema_version_hint: ""
     notes: "Example source. Replace host/user/password/database with your own values."
+
+  - source_id: demo-postgres
+    source_name: Demo PostgreSQL
+    db_type: postgres
+    host: 127.0.0.1
+    port: 5432
+    user: newapi_stats
+    password: change_me
+    database: new-api
+    charset: ""
+    timezone: Asia/Shanghai
+    enabled: false
+    readonly: true
+    schema_version_hint: ""
+    notes: "PostgreSQL example. Enable it after replacing host/user/password/database."

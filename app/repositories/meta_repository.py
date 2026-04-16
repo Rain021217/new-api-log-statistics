@@ -1,18 +1,22 @@
 from app.core.config import get_settings
+from app.db.sql_dialect import get_sql_dialect
 from app.db.source_client import execute_query, source_connection
 from app.schemas.source import SourceDefinition
 
 
 def get_options_snapshot(source: SourceDefinition) -> dict:
+    dialect = get_sql_dialect(source)
+    key_col = dialect.column("key")
+    value_col = dialect.column("value")
     query = """
     SELECT
-      MAX(CASE WHEN `key` = 'general_setting.quota_display_type' THEN `value` END) AS quota_display_type,
-      MAX(CASE WHEN `key` = 'QuotaPerUnit' THEN `value` END) AS quota_per_unit,
-      MAX(CASE WHEN `key` = 'USDExchangeRate' THEN `value` END) AS usd_exchange_rate,
-      MAX(CASE WHEN `key` = 'general_setting.custom_currency_symbol' THEN `value` END) AS custom_currency_symbol,
-      MAX(CASE WHEN `key` = 'general_setting.custom_currency_exchange_rate' THEN `value` END) AS custom_currency_exchange_rate
+      MAX(CASE WHEN {key_col} = 'general_setting.quota_display_type' THEN {value_col} END) AS quota_display_type,
+      MAX(CASE WHEN {key_col} = 'QuotaPerUnit' THEN {value_col} END) AS quota_per_unit,
+      MAX(CASE WHEN {key_col} = 'USDExchangeRate' THEN {value_col} END) AS usd_exchange_rate,
+      MAX(CASE WHEN {key_col} = 'general_setting.custom_currency_symbol' THEN {value_col} END) AS custom_currency_symbol,
+      MAX(CASE WHEN {key_col} = 'general_setting.custom_currency_exchange_rate' THEN {value_col} END) AS custom_currency_exchange_rate
     FROM options
-    """
+    """.format(key_col=key_col, value_col=value_col)
     settings = get_settings()
     with source_connection(source, connect_timeout=settings.request_timeout_seconds) as conn:
         with conn.cursor() as cursor:

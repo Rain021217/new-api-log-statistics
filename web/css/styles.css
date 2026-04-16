@@ -246,6 +246,13 @@ h2 {
   background: linear-gradient(180deg, #fff, #f9fbfd);
 }
 
+.source-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 .source-card h3 {
   margin: 0 0 8px;
   font-size: 18px;
@@ -256,6 +263,17 @@ h2 {
   color: var(--muted);
   line-height: 1.7;
   font-size: 14px;
+}
+
+.source-card-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.source-delete-button {
+  background: #fce8e6;
+  color: #b3261e;
 }
 
 .empty-state {

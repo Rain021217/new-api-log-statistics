@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from app.core.config import get_settings
+from app.db.sql_dialect import get_sql_dialect
 from app.db.source_client import execute_query, source_connection
 from app.schemas.source import SourceDefinition
 
@@ -12,6 +13,8 @@ DAILY_AGG_TABLE = "log_daily_aggregates"
 
 
 def ensure_daily_aggregate_table(source: SourceDefinition) -> None:
+    if source.db_type == "postgres":
+        raise RuntimeError("PostgreSQL preaggregation refresh is not implemented; use raw trend queries")
     ddl = f"""
     CREATE TABLE IF NOT EXISTS {DAILY_AGG_TABLE} (
       agg_date DATE NOT NULL,
@@ -54,11 +57,20 @@ def ensure_daily_aggregate_table(source: SourceDefinition) -> None:
 
 
 def has_daily_aggregate_table(source: SourceDefinition) -> bool:
-    query = """
-    SELECT COUNT(*) AS c
-    FROM information_schema.tables
-    WHERE table_schema = %s AND table_name = %s
-    """
+    if source.db_type == "postgres":
+        query = """
+        SELECT COUNT(*) AS c
+        FROM information_schema.tables
+        WHERE table_catalog = %s
+          AND table_schema = current_schema()
+          AND table_name = %s
+        """
+    else:
+        query = """
+        SELECT COUNT(*) AS c
+        FROM information_schema.tables
+        WHERE table_schema = %s AND table_name = %s
+        """
     settings = get_settings()
     with source_connection(source, connect_timeout=settings.request_timeout_seconds) as conn:
         with conn.cursor() as cursor:
@@ -79,6 +91,8 @@ def refresh_daily_aggregates(
     start_time: int | None = None,
     end_time: int | None = None,
 ) -> dict[str, Any]:
+    if source.db_type == "postgres":
+        raise RuntimeError("PostgreSQL preaggregation refresh is not implemented; use raw trend queries")
     ensure_daily_aggregate_table(source)
 
     where_parts = ["l.type = 2"]
@@ -310,6 +324,7 @@ def get_daily_aggregate_trend(
     *,
     granularity: str,
 ) -> dict[str, Any]:
+    dialect = get_sql_dialect(source)
     where_parts = ["1=1"]
     params: list[Any] = []
     if filters.get("token_name"):
@@ -330,18 +345,26 @@ def get_daily_aggregate_trend(
     if filters.get("request_id"):
         return {"granularity": granularity, "query_mode": "raw-fallback", "points": []}
     if filters.get("start_time"):
-        where_parts.append("agg_date >= DATE(FROM_UNIXTIME(%s))")
+        where_parts.append(f"agg_date >= {dialect.date_from_epoch('%s')}")
         params.append(filters["start_time"])
     if filters.get("end_time"):
-        where_parts.append("agg_date <= DATE(FROM_UNIXTIME(%s))")
+        where_parts.append(f"agg_date <= {dialect.date_from_epoch('%s')}")
         params.append(filters["end_time"])
 
-    if granularity == "week":
-        bucket_label = "CONCAT(YEAR(agg_date), '-W', LPAD(WEEK(agg_date, 3), 2, '0'))"
-        bucket_sort = "MIN(UNIX_TIMESTAMP(agg_date))"
+    if source.db_type == "postgres":
+        if granularity == "week":
+            bucket_label = "TO_CHAR(DATE_TRUNC('week', agg_date::timestamp), 'IYYY-\"W\"IW')"
+            bucket_sort = "EXTRACT(EPOCH FROM DATE_TRUNC('week', agg_date::timestamp))"
+        else:
+            bucket_label = "CAST(agg_date AS TEXT)"
+            bucket_sort = "EXTRACT(EPOCH FROM agg_date::timestamp)"
     else:
-        bucket_label = "CAST(agg_date AS CHAR)"
-        bucket_sort = "UNIX_TIMESTAMP(agg_date)"
+        if granularity == "week":
+            bucket_label = "CONCAT(YEAR(agg_date), '-W', LPAD(WEEK(agg_date, 3), 2, '0'))"
+            bucket_sort = "MIN(UNIX_TIMESTAMP(agg_date))"
+        else:
+            bucket_label = "CAST(agg_date AS CHAR)"
+            bucket_sort = "UNIX_TIMESTAMP(agg_date)"
 
     query = f"""
     SELECT

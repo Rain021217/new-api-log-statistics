@@ -3,12 +3,10 @@ from contextlib import contextmanager
 import logging
 from threading import Lock
 import time
-from typing import Deque, Iterator
-
-import pymysql
-from pymysql.cursors import DictCursor
+from typing import Any, Deque, Iterator
 
 from app.core.config import get_settings
+from app.db.dispatch import get_source_driver
 from app.schemas.source import SourceDefinition
 
 logger = logging.getLogger(__name__)
@@ -16,26 +14,20 @@ logger = logging.getLogger(__name__)
 
 class _SourcePoolManager:
     def __init__(self) -> None:
-        self._pools: dict[str, Deque[pymysql.connections.Connection]] = defaultdict(deque)
-        self._locks: dict[str, Lock] = defaultdict(Lock)
+        self._pools: dict[tuple[str, str], Deque[Any]] = defaultdict(deque)
+        self._locks: dict[tuple[str, str], Lock] = defaultdict(Lock)
 
     def _make_connection(
         self,
         source: SourceDefinition,
         *,
         connect_timeout: int,
-    ) -> pymysql.connections.Connection:
-        return pymysql.connect(
-            host=source.host,
-            port=source.port,
-            user=source.user,
-            password=source.password,
-            database=source.database,
-            charset=source.charset or "utf8mb4",
-            connect_timeout=connect_timeout,
-            read_timeout=connect_timeout,
-            write_timeout=connect_timeout,
-            cursorclass=DictCursor,
+    ):
+        driver = get_source_driver(source)
+        return driver.connect(
+            source,
+            timeout_seconds=connect_timeout,
+            dict_rows=True,
             autocommit=True,
         )
 
@@ -44,15 +36,16 @@ class _SourcePoolManager:
         source: SourceDefinition,
         *,
         connect_timeout: int,
-    ) -> pymysql.connections.Connection:
-        settings = get_settings()
-        pool = self._pools[source.source_id]
-        lock = self._locks[source.source_id]
+    ):
+        pool_key = (source.db_type, source.source_id)
+        pool = self._pools[pool_key]
+        lock = self._locks[pool_key]
+        driver = get_source_driver(source)
         with lock:
             while pool:
                 connection = pool.pop()
                 try:
-                    connection.ping(reconnect=True)
+                    driver.validate(connection)
                     return connection
                 except Exception:
                     try:
@@ -61,14 +54,16 @@ class _SourcePoolManager:
                         pass
             return self._make_connection(source, connect_timeout=connect_timeout)
 
-    def release(self, source: SourceDefinition, connection: pymysql.connections.Connection) -> None:
+    def release(self, source: SourceDefinition, connection) -> None:
         settings = get_settings()
-        pool = self._pools[source.source_id]
-        lock = self._locks[source.source_id]
+        pool_key = (source.db_type, source.source_id)
+        pool = self._pools[pool_key]
+        lock = self._locks[pool_key]
+        driver = get_source_driver(source)
         with lock:
             if len(pool) < settings.db_pool_size:
                 try:
-                    connection.ping(reconnect=True)
+                    driver.validate(connection)
                     pool.append(connection)
                     return
                 except Exception:
@@ -87,7 +82,7 @@ def source_connection(
     source: SourceDefinition,
     *,
     connect_timeout: int = 5,
-) -> Iterator[pymysql.connections.Connection]:
+) -> Iterator[Any]:
     connection = _POOL_MANAGER.acquire(source, connect_timeout=connect_timeout)
     try:
         yield connection
